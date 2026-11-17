@@ -1,6 +1,19 @@
 # Capstone Track: Applied Data Science
  
 **Final Sprint | Due before Final Presentations**
+
+> **New to this track? Start here.** The shared [INET 4031 Capstone Guide](https://github.com/INET4031-Labs/inet4031-capstone-guide) explains how to work through any track on your own. Feeling lost in the first few days is normal for a capstone: read the guide's Start Here page, run the Environment Checkpoint below, and take the next small step.
+>
+> | I need... | Go to |
+> |---|---|
+> | A reading order and what to do in my first session | [START-HERE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/START-HERE.md) |
+> | What to prioritize in Weeks 11 to 14 | [WEEKLY-PLAN](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/WEEKLY-PLAN.md) and the Sprint Timeline below |
+> | Plain-language explanations of this track's concepts | [CONCEPTS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/CONCEPTS.md) |
+> | A cheat sheet for each tool in this track | [TOOL-GUIDE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/TOOL-GUIDE.md) |
+> | Which file proves which success criterion | [EVIDENCE-CHECKLIST](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/EVIDENCE-CHECKLIST.md) |
+> | How the Week 13 rebuild works | [REBUILD](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/REBUILD.md) and the Rebuild section below |
+> | Help when something is broken | [GETTING-UNSTUCK](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/GETTING-UNSTUCK.md) |
+> | How to use AI tools well on this project | [USING-AI](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/USING-AI.md) |
  
 ## Overview
  
@@ -36,7 +49,7 @@ After completing this track, you will have a repeatable, scripted analysis pipel
 - Make an analysis repeatable with a script and a RUNBOOK
 ## Prerequisites
  
-Everything from earlier weeks must still work: the Week 2 Compose stack with Postgres 15 and the Flask API, the Week 3 k3d cluster, and the Week 5 Prometheus. The Week 9 seeded data is a starting point but not enough on its own (see The Business Problem).
+Everything from earlier weeks must still work: the Week 2 Compose stack with Postgres 15 and the Flask API, the Week 3 k3d cluster, and the Week 5 Prometheus. The incidents you seeded in earlier labs are a starting point but not enough on their own (see The Business Problem).
  
 ### Environment Checkpoint
  
@@ -133,6 +146,27 @@ These are examples, not requirements. Combine them, change them, or ignore them.
  
 Optional extension: expose a small read-only summary endpoint (for example, JSON totals) from a separate small pod. This is not required. If you do it, see the Rules of the Road.
  
+## Track Tips and Common Trip-Ups
+
+These notes come from where students usually get stuck. They do not change the success criteria; they help you reach them. Concepts are explained in [CONCEPTS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/CONCEPTS.md) and commands in [TOOL-GUIDE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/TOOL-GUIDE.md). If a flag here does not work on your installed version, check the tool's `--help`.
+
+**The data decision (criterion 1)**
+
+- Your analysis can only find patterns your data contains. A useful approach is to **plant a signal and then recover it**: build realistic structure into your generator (volume that grows over the weeks, busier weekdays and hours, categories with different resolution times and long tails), then check that your analysis finds it. Say plainly in `DATA.md` and the report what you planted. That is honest synthetic-data practice.
+- Reseeding appends rows. Pick one clean approach and document it, for example loading into a fresh table, or clearing your own team's table before a full reload. Record the exact command and the row counts before and after.
+
+**Analysis (criteria 2 to 4)**
+
+- Pull data to a CSV from the host so the file lands in your repo, not inside the container: `docker compose -f week-2/docker-compose.yml exec -T db psql -U appuser -d statustracker --csv -c "SELECT ..." > capstone/data-science/output/raw.csv`.
+- Call `matplotlib.use("Agg")` before importing `pyplot`, since the VM has no display. Every chart needs a title, labeled axes, and units.
+- Resolution times are usually skewed, so compare medians and the 90th percentile rather than means. For a trend, `scipy.stats.linregress` gives a slope and p-value. For comparing two categories' resolution times, a rank-based test such as `scipy.stats.mannwhitneyu` suits skewed data better than a t-test.
+- Write the plain-English sentence for your statistical check as if Dana will read it: what the number says, and what it does not say.
+
+**The staffing recommendation (criterion 5)**
+
+- Resolution time is how long an incident stays open, not how long an agent works on it. A staffing number needs an assumption about handling time. One simple, transparent model: agents needed in an hour = (incidents arriving per hour x hours of agent work per incident) / share of the hour an agent spends on incidents. State every input, show the arithmetic, and test the 20% growth case for discussion question 5.
+- Prometheus only has data from the time your Prometheus has been running. If you use Approach C, say what time range it covers.
+
 ## Rules of the Road
  
 - **No sudo on RHEL.** Students never use `sudo` on RHEL for anything. Run `k3d`, `kubectl`, `helm`, and `k6` without sudo (it cannot find them in `/usr/local/bin`). Always pass `-c <your cluster name>` to `k3d image import`; other `k3d cluster` commands take your cluster name as an argument (for example `k3d cluster list`).
@@ -148,6 +182,17 @@ Optional extension: expose a small read-only summary endpoint (for example, JSON
 - **No real data.** All data is synthetic. Do not put real names, emails, or customer details into the dataset.
 ## How to Run This Sprint
  
+### Sprint Timeline (Weeks 11 to 14)
+
+Both sections follow the same four weeks. The planning steps below still apply; this table says where your work should be at the end of each week. The full plan is in [WEEKLY-PLAN](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/WEEKLY-PLAN.md).
+
+| Week | By the end of the week |
+|---|---|
+| 11 Kickoff | Environment Checkpoint saved. Data decision written in `DATA.md` (how categories and resolution times exist, and their limits). Dataset meets criterion 1. `data_quality.csv` committed. QA test cases drafted. |
+| 12 Build | Three analysis CSVs, three labeled charts, and one statistical check, all regenerated by one command. |
+| 13 Consolidate and rebuild | `report.md` with the staffing recommendation and assumptions, RUNBOOK and ARCHITECTURE, rebuild, and gap log. |
+| 14 Present | Rebuild presentation (live on the Shared VM, recorded on the Local VM), running the pipeline from one command and reading the recommendation aloud. |
+
 ### Shared VM (RHEL, teams)
  
 1. **Sprint planning.** Turn each success criterion into GitHub issues on your project board (data, analysis, charts, report, docs, QA). Estimate and assign them.
@@ -160,11 +205,29 @@ Optional extension: expose a small read-only summary endpoint (for example, JSON
 4. **Retrospective.** Fill in `docs/final-sprint-retrospective.md` at the end.
 ### Local VM (Ubuntu, individual)
  
-- **Week 1 milestone:** environment checkpoint passes, data decision made and documented, dataset meets criterion 1, first CSV and chart produced.
-- **Week 2 milestone:** all CSVs, charts, the statistical check, report, RUNBOOK, ARCHITECTURE, and README section complete; demo rehearsed.
+- **Week 11 milestone:** environment checkpoint passes, data decision made and documented, dataset meets criterion 1, first CSV and chart produced.
+- **Week 12 milestone:** all CSVs, charts, the statistical check, report, RUNBOOK, ARCHITECTURE, and README section complete; demo rehearsed.
+- **Week 13:** consolidate your documents, then rebuild on a new VirtualBox VM and keep a gap log (see the Rebuild section).
+- **Week 14:** recorded presentation of your rebuild.
 - Write your own test cases in the same `docs/qa-report-final.md` file (you sign as both author and tester) before you consider each piece finished.
 - A short reflection (the Individual Reflection section of `docs/final-sprint-retrospective.md`) replaces the team retrospective.
 - If you need a browser, use http://localhost:8081 (forwarded by VS Code). Ports are the same as above without a team number.
+
+## Rebuild (Weeks 13 and 14)
+
+Your work has to come back up from your repository alone. Start from a clean VM, clone your repo, and follow only your README, RUNBOOK, and scripts. Every step that fails or that your README forgot is a gap: write it in `capstone/data-science/REBUILD-GAPS.md`, fix it by pull request, and update the README. The full contract, the "what lives outside git" checklist, and the gap log template are in [REBUILD](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/REBUILD.md).
+
+> **Shared VM (RHEL, teams):** In Week 13 your team takes a turn in a queue to test the rebuild on a separate VM, which is wiped between teams. In Week 14 you present live: the tools are pre-installed, and your team clones the repo and brings the app up from your README and setup instructions. There is no sudo on the rebuild or presentation VM, so every step your README asks someone to run must work without it. Your Ansible playbooks and any [PREDICT ONLY] code stay reference-only: do not run them, and make sure bringing the app up does not depend on them. Recreate your k3d cluster with the same `--subnet 100.97.<team>.0/24` flag you used before.
+
+> **Local VM (Ubuntu, individual):** In Week 13 create a new VM in VirtualBox using the same steps you used for your original VM, clone your repo, and follow your README. Keep the original VM until the rebuild works. In Week 14 you present a recording of the rebuild.
+
+**Proof of life for this track:** one command regenerates every CSV and PNG; row counts match `data_quality.csv`.
+
+**Gaps this track usually finds:**
+- The database starts empty on a new VM, and the seed command (or whether it is safe to run twice) is not documented.
+- The analysis depends on a CSV that was exported by hand and never committed or scripted.
+- Prometheus history does not exist on a fresh cluster, so Approach C results cannot be reproduced without an export or an explanation.
+
 ## Deliverables
  
 - Implementation committed under `capstone/data-science/` in your repo (merged via PR on the RHEL section)
@@ -173,8 +236,10 @@ Optional extension: expose a small read-only summary endpoint (for example, JSON
 - `capstone/data-science/ARCHITECTURE.md` with an architecture diagram (Mermaid OK) showing VM, cluster, app, and new components
 - A "How to run this" section added to the repo's top-level README so someone who clones the repo can bring the track implementation up
 - `docs/qa-report-final.md` with your own test cases and results
+- `capstone/data-science/REBUILD-GAPS.md`: the gap log from your Week 13 rebuild (template in [REBUILD](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/REBUILD.md))
 - Shared VM: `docs/final-sprint-retrospective.md`; Local VM: a short reflection (a section in the retrospective file named "Individual Reflection")
 - Final presentation/demo: 8-10 minutes for a team on RHEL, 5 minutes individual on Ubuntu. Show the data decision and quality check, run the pipeline from one command in the terminal, show the CSVs and charts, and read the staffing recommendation aloud. The RHEL demo is CLI-driven.
+- Week 14 rebuild presentation: live on the Shared VM (clone the repo and bring the app up from your README), recorded on the Local VM. See the Rebuild section.
 Track-specific:
 - `data_quality.csv`, the three analysis CSVs, and the PNG charts under `capstone/data-science/output/`
 - `capstone/data-science/report.md` (two pages or less, written for Dana and Priya)
@@ -190,3 +255,7 @@ Track-specific:
 ## Getting Help
  
 Clarifications go to the TA or professor. There is no wiki for this track. If a tool is missing or a command fails, tell the TA before working around it.
+
+**Before you ask:** work through [GETTING-UNSTUCK](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/GETTING-UNSTUCK.md) for about 30 minutes, then ask with the command, its full output, what you expected, and what you tried.
+
+**Using AI:** AI assistants are welcome as a tool for learning how these tools work and how enterprises use them. Do not rely on them to produce your work: understand every line you commit, verify AI answers against the tool's documentation, never paste AI output into evidence files, and never paste secrets into an AI tool. See [USING-AI](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/USING-AI.md).
