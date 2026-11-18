@@ -7,6 +7,8 @@
 > | I need... | Go to |
 > |---|---|
 > | A reading order and what to do in my first session | [START-HERE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/START-HERE.md) |
+> | What I may change in the app, and how to propose my own criterion | [MAKE-IT-YOURS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/MAKE-IT-YOURS.md) |
+> | Local VM: how my k3s and OpenTofu setup differs from this README | [LOCAL-VM](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/LOCAL-VM.md) |
 > | What to prioritize in Weeks 11 to 14 | [WEEKLY-PLAN](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/WEEKLY-PLAN.md) and the Sprint Timeline below |
 > | Plain-language explanations of this track's concepts | [CONCEPTS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/CONCEPTS.md) |
 > | A cheat sheet for each tool in this track | [TOOL-GUIDE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/TOOL-GUIDE.md) |
@@ -14,6 +16,8 @@
 > | How the Week 13 rebuild works | [REBUILD](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/REBUILD.md) and the Rebuild section below |
 > | Help when something is broken | [GETTING-UNSTUCK](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/GETTING-UNSTUCK.md) |
 > | How to use AI tools well on this project | [USING-AI](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/USING-AI.md) |
+>
+> **Local VM students:** much of this README describes the Shared VM setup (k3d, team numbers, `main`, `kubectl apply`). Your setup is a single-node k3s cluster that changes through OpenTofu and your deploy script. Look for the **Local VM** notes in each section, and keep [LOCAL-VM](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/LOCAL-VM.md) open while you work.
  
 ## Overview
  
@@ -50,6 +54,8 @@ After completing this track, you will have a repeatable, scripted analysis pipel
 ## Prerequisites
  
 Everything from earlier weeks must still work: the Week 2 Compose stack with Postgres 15 and the Flask API, the Week 3 k3d cluster, and the Week 5 Prometheus. The incidents you seeded in earlier labs are a starting point but not enough on their own (see The Business Problem).
+
+> **Local VM (Ubuntu, individual):** your data lives in the `tickets` table (same columns as `incidents`) in the `db` pod on your k3s cluster, managed by OpenTofu since Week 5. Your Compose stack has been stopped since Week 4, there is no `seed.py`, and Prometheus is from Week 6. Week 10's 10,000 `Seeded ticket` rows, if you kept them, span about a week and have no categories, so criterion 1 needs a generator of your own under `capstone/data-science/`.
  
 ### Environment Checkpoint
  
@@ -77,7 +83,20 @@ export PROM_URL=http://localhost:<your Prometheus port>
 ./week-5/pq.sh 'up'
 ```
  
-You should see one line per target ending in `-> 1`. (`pq.sh` is the Week 5 helper; for raw JSON, `curl -s "$PROM_URL/api/v1/query" --data-urlencode 'query=up' | jq .status` returns `"success"`.) If the port-forward dies or hangs: `pkill -u $USER -f "kubectl port-forward"` and start it again. (The Compose port is 8080 + your team number, so team 3 uses 8083.)
+**Local VM:** use this instead (`sql.sh` is your Week 10 helper, `pq.sh` your Week 6 one):
+
+```bash
+curl -s http://$(kubectl get service web -o jsonpath='{.spec.clusterIP}'):8080/health
+./week-10/sql.sh "SELECT COUNT(*), MIN(created_at), MAX(created_at) FROM tickets"
+kubectl get nodes
+kubectl get pods -A
+# In its own terminal:
+kubectl port-forward --namespace monitoring service/prometheus-server 9090:80
+# Then:
+./week-6/pq.sh 'up'
+```
+
+You should see one line per target ending in `-> 1`. (`pq.sh` is the Week 5 helper on the Shared VM; for raw JSON, `curl -s "$PROM_URL/api/v1/query" --data-urlencode 'query=up' | jq .status` returns `"success"`.) If the port-forward dies or hangs: `pkill -u $USER -f "kubectl port-forward"` and start it again. (The Compose port is 8080 + your team number, so team 3 uses 8083.)
  
 ## Team Port Assignments
  
@@ -88,7 +107,7 @@ This track needs no new ports. You use only the ports you already have:
 - Prometheus port-forward: 9090 + team number
 > **Shared VM (RHEL, teams):** Use only your own team's ports. Do not send traffic to another team's ports.
  
-> **Local VM (Ubuntu, individual):** There is no team number. Use 8080 (Compose), 8081 (Kubernetes), and 9090 (Prometheus).
+> **Local VM (Ubuntu, individual):** There is no team number. The app is on port 8080 (the `web` Service, or `kubectl port-forward --address 0.0.0.0 service/web 8080:8080` for your browser at http://localhost:8080) and Prometheus on 9090.
  
 ## Tools Available
  
@@ -105,7 +124,7 @@ This track needs no new ports. You use only the ports you already have:
  
 > **Shared VM (RHEL, teams):** The system tools in this table (everything except Python packages in your own virtualenv) are pre-installed by the TA. Run the Verify command for each tool. If a command is not found, post in the course channel or tell the TA or professor before continuing. Do not install anything system-wide.
  
-> **Local VM (Ubuntu, individual):** Your VM runs Ubuntu Server 26.04.1. You install tools yourself. Run the command in the last column, then the Verify command.
+> **Local VM (Ubuntu, individual):** Your VM runs Ubuntu Server 26.04.1. You install tools yourself. Run the command in the last column, then the Verify command. The `psql` client is optional for you: the database runs in the `db` pod, and `./week-10/sql.sh` or `kubectl exec -i deploy/db -- psql ...` reach it without a local client.
  
 **Versions.** This table has no version numbers on purpose: use the current stable release of each tool, so these instructions keep working in future semesters. Record what you actually used. Run each Verify command and save the output to `capstone/data-science/TOOL-VERSIONS.txt`, then commit it. For Python packages, also save `~/data-science-venv/bin/pip freeze > capstone/data-science/requirements.txt` after you install them, so a teammate (or a future you) can rebuild the same environment.
  
@@ -145,6 +164,8 @@ These are examples, not requirements. Combine them, change them, or ignore them.
 **Approach C: Three-source triangulation.** Compare incident volume from the table with request counts from the API's Prometheus metrics (`/metrics`, scraped by Prometheus) to see whether system load and incident load move together, then use `scipy` to test it. This demonstrates how independent sources can confirm or contradict each other, and the limits of Prometheus data, which only goes back as far as your Prometheus has been running.
  
 Optional extension: expose a small read-only summary endpoint (for example, JSON totals) from a separate small pod. This is not required. If you do it, see the Rules of the Road.
+
+> **Local VM:** your app has no JSON `/incidents` endpoint and no `/metrics` endpoint, so Approach B pulls from the database, and Approach C has no request counts from the app. Prometheus does have your Week 9 database exporter metrics and container CPU and memory, which you can compare with ticket volume. Adding a JSON or `/metrics` endpoint to the app is a good [MAKE-IT-YOURS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/MAKE-IT-YOURS.md) change if you want it.
  
 ## Track Tips and Common Trip-Ups
 
@@ -167,6 +188,13 @@ These notes come from where students usually get stuck. They do not change the s
 - Resolution time is how long an incident stays open, not how long an agent works on it. A staffing number needs an assumption about handling time. One simple, transparent model: agents needed in an hour = (incidents arriving per hour x hours of agent work per incident) / share of the hour an agent spends on incidents. State every input, show the arithmetic, and test the 20% growth case for discussion question 5.
 - Prometheus only has data from the time your Prometheus has been running. If you use Approach C, say what time range it covers.
 
+**Local VM notes**
+
+- **Export from the `db` pod to a file on the VM:** `kubectl exec -i deploy/db -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" --csv -c "SELECT ..."' > capstone/data-science/output/raw.csv`. The single quotes keep `$POSTGRES_USER` and `$POSTGRES_DB` for the pod's own environment.
+- **Load generated rows the same way in reverse:** `kubectl exec -i deploy/db -- sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "\copy tickets (title, description, status, created_at) FROM STDIN WITH CSV HEADER"' < capstone/data-science/data/generated.csv`. Add columns first if your data needs them (see [MAKE-IT-YOURS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/MAKE-IT-YOURS.md) for safe schema changes).
+- **Back up before a bulk load.** Run your Week 9 `./week-9/backup.sh` first, so you can restore if a load goes wrong.
+- **Or analyze outside the database.** Your generator can write CSV files that pandas or DuckDB read directly. Criterion 1 is about the dataset you analyze, so say in `DATA.md` which path you chose and why.
+
 ## Rules of the Road
  
 - **No sudo on RHEL.** Students never use `sudo` on RHEL for anything. Run `k3d`, `kubectl`, `helm`, and `k6` without sudo (it cannot find them in `/usr/local/bin`). Always pass `-c <your cluster name>` to `k3d image import`; other `k3d cluster` commands take your cluster name as an argument (for example `k3d cluster list`).
@@ -174,12 +202,26 @@ These notes come from where students usually get stuck. They do not change the s
 - **Your own system only.** Query only your own team's database, API, cluster, and Prometheus port. Do not scan or probe the VM or the campus network, and do not send traffic to other teams' ports.
 - **Resources are shared.** About six teams share one VM. Analysis must finish in seconds to a few minutes on CPU. No Grafana, Spark, Elasticsearch, Kafka, PyTorch/TensorFlow, or always-on JupyterLab. Run analysis scripts on the host from your venv and let them exit; do not leave them running. Aggregate in SQL or read in chunks rather than loading something huge.
 - **Memory budget.** Keep anything you deploy to the cluster under 512Mi total in limits (analysis runs on the host; only the optional endpoint would be deployed). Every pod must have memory `requests` and `limits`. Check with `kubectl top pods -A` and `free -h`. If `kubectl top` errors, tell the TA, and use `kubectl describe pod <name>` and `free -h` meanwhile.
-- **Seeding changes data.** Re-running a seed script appends rows. If you extend the generator, work in your own copy and keep the original unchanged. Record the exact command that produced the data you analyzed, and the row count before and after.
+- **Seeding changes data.** Re-running a seed script appends rows. You may change the generator and the app (see [MAKE-IT-YOURS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/MAKE-IT-YOURS.md)): commit every change, keep it safe to run twice, and record the exact command that produced the data you analyzed, and the row count before and after.
 - **If you build an image (optional extension).** Tag it `<name>:team<N>` (the Docker daemon is shared, so other tags collide) and import with `k3d image import <name>:team<N> -c <your cluster name>`. Build with `docker build --network host -t <name>:team<N> <dir>`, because container addresses on the campus network cannot reach the internet. Do not use `build: network: host` in Compose. The VM uses `umask 077`, so edited files become mode 600; if your Dockerfile runs as a non-root user, use `COPY --chmod=644 ...` (or `chmod 644` the files before building) or the container cannot read them.
 - **New pods need a NetworkPolicy.** The `default` namespace has a default-deny ingress policy, so a new pod that receives traffic needs its own allow policy or requests silently hang. You write it; start from the existing nginx-to-flask policy in `manifests/`.
 - **Firewall.** Never disable firewalld or edit `/etc/docker/daemon.json`.
 - **Git.** On RHEL, commit on a branch: `git switch -c <branch>`, `git push -u origin <branch>`, open a PR, wait for build-and-push, then merge. Never push to main.
 - **No real data.** All data is synthetic. Do not put real names, emails, or customer details into the dataset.
+
+### Local VM (Ubuntu, individual) rules
+
+The rules above that mention other teams, team numbers, k3d, `--network host`, firewalld, `/etc/docker/daemon.json`, `umask 077`, or [PREDICT ONLY] describe the Shared VM. On your own VM these apply instead:
+
+- **Change the cluster through OpenTofu.** Anything that should last goes in `week-5/*.tf`, through a pull request, the Deploy gate, and `week-7/deploy.sh`. Throwaway test pods may use `kubectl apply`, and you delete them afterward. A change made with `kubectl` to an object OpenTofu manages is undone by the next deploy.
+- **The gate checks your additions.** Every container you add in `week-5/` needs CPU and memory requests and limits and must not allow privilege escalation, or the `security scan` job fails and the ruleset blocks the merge.
+- **New image, new tag.** Build a new tag (for example `:v1`, `:v2`), import it with `docker save` and `sudo k3s ctr images import` **before** the pull request that uses it, and never overwrite the tag that is running.
+- **`master` and `protect-master` stay.** Work on branches and merge through pull requests. Do not delete the ruleset, remove its checks, or add a bypass.
+- **No default-deny.** Only the `db` pods are protected (by `db-clients`). A pod you add accepts traffic from anywhere until a NetworkPolicy selects it.
+- **sudo** is for package installs, `sudo install` of single binaries, and `sudo k3s ctr`. Run `kubectl`, `helm`, `tofu`, and `k6` as your normal user.
+- **Memory budget still applies:** anything you deploy (only the optional endpoint) stays under 512Mi of limits. Analysis runs on the VM from your venv and exits.
+- **The optional endpoint** ships through `week-5/` like any other service, with its own image tag imported into k3s and a NetworkPolicy if you want to limit who reaches it.
+
 ## How to Run This Sprint
  
 ### Sprint Timeline (Weeks 11 to 14)
@@ -205,13 +247,15 @@ Both sections follow the same four weeks. The planning steps below still apply; 
 4. **Retrospective.** Fill in `docs/final-sprint-retrospective.md` at the end.
 ### Local VM (Ubuntu, individual)
  
-- **Week 11 milestone:** environment checkpoint passes, data decision made and documented, dataset meets criterion 1, first CSV and chart produced.
-- **Week 12 milestone:** all CSVs, charts, the statistical check, report, RUNBOOK, ARCHITECTURE, and README section complete; demo rehearsed.
-- **Week 13:** consolidate your documents, then rebuild on a new VirtualBox VM and keep a gap log (see the Rebuild section).
+You follow the same Sprint Timeline as the Shared VM teams, alone.
+
+- **Week 11 milestone:** Environment Checkpoint saved, data decision written in `DATA.md`, dataset meets criterion 1, `data_quality.csv` committed, test cases drafted.
+- **Week 12 milestone:** three analysis CSVs, three labeled charts, and one statistical check, all regenerated by one command.
+- **Week 13:** `report.md` with the staffing recommendation and assumptions, RUNBOOK, ARCHITECTURE, and README section, then rebuild on a new VirtualBox VM and keep a gap log (see the Rebuild section).
 - **Week 14:** recorded presentation of your rebuild.
 - Write your own test cases in the same `docs/qa-report-final.md` file (you sign as both author and tester) before you consider each piece finished.
 - A short reflection (the Individual Reflection section of `docs/final-sprint-retrospective.md`) replaces the team retrospective.
-- If you need a browser, use http://localhost:8081 (forwarded by VS Code). Ports are the same as above without a team number.
+- If you need a browser, run `kubectl port-forward --address 0.0.0.0 service/web 8080:8080` and open http://localhost:8080. Ports are the same as above without a team number.
 
 ## Rebuild (Weeks 13 and 14)
 
@@ -219,7 +263,7 @@ Your work has to come back up from your repository alone. Start from a clean VM,
 
 > **Shared VM (RHEL, teams):** In Week 13 your team takes a turn in a queue to test the rebuild on a separate VM, which is wiped between teams. In Week 14 you present live: the tools are pre-installed, and your team clones the repo and brings the app up from your README and setup instructions. There is no sudo on the rebuild or presentation VM, so every step your README asks someone to run must work without it. Your Ansible playbooks and any [PREDICT ONLY] code stay reference-only: do not run them, and make sure bringing the app up does not depend on them. Recreate your k3d cluster with the same `--subnet 100.97.<team>.0/24` flag you used before.
 
-> **Local VM (Ubuntu, individual):** In Week 13 create a new VM in VirtualBox using the same steps you used for your original VM, clone your repo, and follow your README. Keep the original VM until the rebuild works. In Week 14 you present a recording of the rebuild.
+> **Local VM (Ubuntu, individual):** In Week 13 create a new VM in VirtualBox using the same steps you used for your original VM, clone your repo, and follow your README. Keep the original VM until the rebuild works. In Week 14 you present a recording of the rebuild. Start from the "Rebuild on a fresh VM" sections you wrote in your Week 7, 8, and 9 READMEs (k3s, OpenTofu variables, image import, deploy and backup cron lines), then add everything this track added. The full Local VM order is in [REBUILD](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/REBUILD.md). You have sudo on your own VM; every step that needs it must be in your README.
 
 **Proof of life for this track:** one command regenerates every CSV and PNG; row counts match `data_quality.csv`.
 
@@ -227,6 +271,7 @@ Your work has to come back up from your repository alone. Start from a clean VM,
 - The database starts empty on a new VM, and the seed command (or whether it is safe to run twice) is not documented.
 - The analysis depends on a CSV that was exported by hand and never committed or scripted.
 - Prometheus history does not exist on a fresh cluster, so Approach C results cannot be reproduced without an export or an explanation.
+- Local VM: the generated rows were loaded into the old VM's database by hand, and the load command (or the restore from a backup) is not in the README.
 
 ## Deliverables
  
