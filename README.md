@@ -171,7 +171,29 @@ Optional extension: expose a small read-only summary endpoint (for example, JSON
 
 These notes come from where students usually get stuck. They do not change the success criteria; they help you reach them. Concepts are explained in [CONCEPTS](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/CONCEPTS.md) and commands in [TOOL-GUIDE](https://github.com/INET4031-Labs/inet4031-capstone-guide/blob/main/TOOL-GUIDE.md). If a flag here does not work on your installed version, check the tool's `--help`.
 
+**The pipeline at a glance**
+
+Every approach above passes through the same stages. Knowing them helps you split the work and name your scripts:
+
+1. **Generate:** a script with a fixed random seed writes synthetic incidents.
+2. **Load:** put them in the database, or keep them as a CSV if you analyze outside the database (say which in `DATA.md`).
+3. **Extract:** pull the rows you analyze into a CSV in your repo.
+4. **Check quality:** count rows, nulls, and the date range, and write `data_quality.csv`.
+5. **Aggregate:** produce the three analysis CSVs.
+6. **Chart:** produce the three PNGs.
+7. **Test:** run your statistical check and save the number.
+8. **Write:** `report.md` for Dana.
+
+Your "one command" for criterion 2 runs stages 3 to 7 at least. Steps 1 and 2 can be separate, as long as the README says how to run them.
+
 **The data decision (criterion 1)**
+
+- **What one generated row could look like.** Think in columns before you think in code. A row needs a title, a category, a status, a `created_at`, and, for closed rows, a resolution time (as a `resolved_at` timestamp or a duration). Then decide how each column behaves:
+  - *Category:* a handful of categories that fit a logistics company (for example scanners and handhelds, the dispatch app, printers and labels, logins and access, network), each with its own list of titles so the title hints at the category without giving it away every time.
+  - *`created_at`:* spread over more than 90 days, with more incidents on weekdays and during working hours, and a small week-over-week growth if you want a trend to find.
+  - *Resolution time:* skewed, not uniform. Most incidents close in a few hours, a few take days. Each category gets a different typical value. A search for "lognormal distribution" will show you one common way to draw numbers with that shape.
+  - *Status:* older incidents are mostly closed; the most recent ones are more likely to be open or in progress, which is what a real queue looks like.
+- Write these choices in `DATA.md` before you write the generator. That list is your plan, and later it is the "what we planted" section of your report.
 
 - Your analysis can only find patterns your data contains. A useful approach is to **plant a signal and then recover it**: build realistic structure into your generator (volume that grows over the weeks, busier weekdays and hours, categories with different resolution times and long tails), then check that your analysis finds it. Say plainly in `DATA.md` and the report what you planted. That is honest synthetic-data practice.
 - Reseeding appends rows. Pick one clean approach and document it, for example loading into a fresh table, or clearing your own team's table before a full reload. Record the exact command and the row counts before and after.
@@ -186,7 +208,21 @@ These notes come from where students usually get stuck. They do not change the s
 **The staffing recommendation (criterion 5)**
 
 - Resolution time is how long an incident stays open, not how long an agent works on it. A staffing number needs an assumption about handling time. One simple, transparent model: agents needed in an hour = (incidents arriving per hour x hours of agent work per incident) / share of the hour an agent spends on incidents. State every input, show the arithmetic, and test the 20% growth case for discussion question 5.
+- **You will find Erlang C.** Searching for call center or service desk staffing leads to the Erlang C formula and workforce-management tools. That is what real support teams use, and you may mention it in your report or discussion answers. The simple model above is enough for criterion 5; do not spend the sprint implementing queueing theory.
 - Prometheus only has data from the time your Prometheus has been running. If you use Approach C, say what time range it covers.
+
+**The report (criterion 5)**
+
+Dana is not technical, has five minutes, and needs a number. One outline that works (section names only; the content is yours):
+
+1. **The question:** one or two sentences in Dana's words.
+2. **What we found:** three findings, each pointing to one of your charts.
+3. **How we got the number:** the staffing arithmetic, with every input shown.
+4. **Assumptions and limits:** handling time, synthetic data and what you planted, what would change the answer.
+5. **If volume grows 20%:** the same arithmetic with the higher volume.
+6. **Recommendation:** the number or range of agents, and which hours or categories need the coverage.
+
+The criterion asks the report to end with the recommendation. You may also state it in one line at the very top so Dana sees it first.
 
 **Local VM notes**
 
