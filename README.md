@@ -146,10 +146,12 @@ These packages publish prebuilt wheels, so nothing should compile. If `pip` star
  
 ```bash
 cd "$(mktemp -d)"
-curl -fLO https://github.com/duckdb/duckdb/releases/latest/download/duckdb_cli-linux-amd64.zip
-unzip -o duckdb_cli-linux-amd64.zip duckdb
-sudo install -m 0755 duckdb /usr/local/bin/
+curl -fLO https://github.com/duckdb/duckdb/releases/latest/download/duckdb-cli-linux-amd64.tar.gz
+tar -xzf duckdb-cli-linux-amd64.tar.gz
+sudo install -m 0755 "$(find . -type f -name duckdb | head -n 1)" /usr/local/bin/
 ```
+
+If the download returns "404 Not Found", DuckDB renamed its release file again (it changed from `duckdb_cli-linux-amd64.zip` to `duckdb-cli-linux-amd64.tar.gz` in version 2.0). Open the [releases page](https://github.com/duckdb/duckdb/releases/latest), copy the Linux CLI file name (not the `-musl` one), and adjust the command.
  
 On RHEL the TA installs it; you never do.
  
